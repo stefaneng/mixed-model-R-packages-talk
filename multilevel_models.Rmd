@@ -1,0 +1,255 @@
+---
+title: "Multilevel/Mixed Effects Model Packages in R"
+output:
+    beamer_presentation:
+        slide_level: 2
+        keep_tex: true
+---
+
+```{r, setup, echo=FALSE, warning = FALSE, message = FALSE, results = 'hide'}
+library(brms)
+library(lme4)
+library(nlme)
+library(ggplot2)
+library(BoutrosLab.plotting.general)
+
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.align = 'center', out.width = '90%', fig.pos = 'H');
+
+theme_set(theme_classic())
+```
+
+## Package choices
+  - `lme4`
+    - "Fit linear and generalized linear mixed-effects models."
+  - `nlme`
+    - Linear and Nonlinear Mixed Effects Models
+    - Can specify covariance structure for the residuals
+      - Useful for complex longitudinal modeling
+  - `gamm4`
+    - "Generalized Additive Mixed Models using 'mgcv' and 'lme4'"
+  - `brms`
+    - "Fit Bayesian generalized (non-)linear multivariate multilevel models using 'Stan' for full Bayesian inference." 
+    
+```{r, eval = F}
+# This model has fixed effects only for the interaction, intercept included per default
+fit1.lmer <- lmer(weight ~ 1 + Time + (1 | Rat), data = BodyWeight)
+BodyWeight$mod1.predict <- predict(fit1.lmer)
+BodyWeight$mod1.marginal <- predict(fit1.lmer, re.form = NA)
+
+ggplot(BodyWeight) +
+  geom_line(aes(x = Time, y = weight, group = Rat, colour = Diet), alpha = 0.5) +
+  geom_line(aes(x = Time, y = mod1.predict, group = Rat))
+
+plot(residuals(fit1.lmer))
+acf(residuals(fit1.lmer), )
+pacf(residuals(fit1.lmer))
+
+fit2.lme <- lme(
+  fixed = weight ~ 1 + Time,
+  random = ~ 1 | Rat,
+  data = BodyWeight,
+  method = "REML")
+plot(ACF(fit2.lme, resType = "normalized"))
+
+fit3.lme <- lme(
+  fixed = weight ~ 1 + Time,
+  random = ~ 1 | Rat,
+  correlation = corAR1(form = ~ 1 | Rat),
+  data = BodyWeight,
+  method = "REML"
+  )
+plot(ACF(fit2.lme, resType = "normalized"))
+
+anova(fit2.lme, fit3.lme)
+
+BodyWeight$fit3.predict <- predict(fit3.lme, level = 0:1)
+ggplot(BodyWeight) +
+  geom_line(aes(x = Time, y = weight, group = Rat, colour = Diet), alpha = 0.5) +
+  geom_line(aes(x = Time, y = fit3.predict, group = Rat))
+```
+
+## sleepstudy
+```{r, echo = T}
+sleepstudy.plot <- create.scatterplot(
+  Reaction ~ Days | Subject,
+  data = sleepstudy,
+  type = c('p', 'r'),
+  layout = c(6, 3),
+  xlab.label = "Days of sleep deprivation",
+  ylab.label = "Average reaction time (ms)",
+  ylab.cex = 1.2,
+  xlab.cex = 1.2,
+  xaxis.cex = 1,
+  yaxis.cex = 1,
+  lwd = 2.5
+  )
+```
+## sleepstudy
+```{r}
+# key = list(
+#     space = "right",
+#    lines=list(col=default.colours(3), lwd=4),
+#         text=list(c("Patient Int Pred","Average", "Patient Int+Slope Pred"))
+#  )
+sleepstudy.plot
+```
+
+## Sleep Study - Model 1
+  - Fixed effect for time (Days)
+  - Per subject intercept
+```{r, echo = T}
+# Fit the model using ML
+fm1 <- lmer(
+  formula = Reaction ~ 1 + Days + (1 | Subject),
+  data = sleepstudy,
+  REML = FALSE)
+# Predict with subject-specific intercepts
+sleepstudy$fm1.predict <- predict(fm1)
+# Predict 
+sleepstudy$fm1.predict.marginal <- predict(
+  fm1,
+  re.form = NA)
+```
+
+## Subject Specific Prediction
+```{r}
+sleepstudy.plot + create.scatterplot(
+  fm1.predict ~ Days | Subject,
+  data = sleepstudy,
+  type = c('l'),
+  col = default.colours(3)[1],
+  lwd = 2.5,
+  layout = c(6, 3)
+) + create.scatterplot(
+  fm1.predict.marginal ~ Days | Subject,
+  data = sleepstudy,
+  type = c('l'),
+  lwd = 2.5,
+  col = default.colours(3)[2],
+  layout = c(6, 3)
+)
+```
+  
+## REML vs ML
+  - Two main ways of fitting a mixed-effect model: REML (Restricted Maximum-likelihood) and ML 
+    - REML has biased estimates for fixed effects when study is unbalanced
+    - ML has biased estimates for variance components
+  - In `lme4` use `REML = TRUE` or `REML = FALSE`
+  - In `nlme` use `method = "ML"` or `method = "REML"`
+  - Use ML if comparing fixed effects or REML if comparing variance components
+  - Need ML if using likelihood ratio tests (or AIC/BIC)
+
+##  Sleep Study - Model 1 REML
+```{r, echo = T}
+fm1.REML <- lmer(
+  formula = Reaction ~ 1 + Days + (1 | Subject),
+  data = sleepstudy,
+  REML = TRUE)
+```
+
+## Sleep Study - Model 1 REML
+```{r}
+fm1.REML
+```
+
+## lme4 syntax
+  - `(1 | Subject)`
+    - subject specific intercept
+  - `(1 + Days | Subject)`
+    - subject specific intercept and slope with Time and Subject *correlated*
+  - `(1 | Subject) + (0 + Days | Subject)`
+    - subject specific intercept and slope with Time and Subject *independent*
+    - Don't forget the `0 + Days` or `(Days | Subject)` implicitly will fit `(1 + Days | Subject)`
+  
+## Sleep Study - Model 2 (Subject slopes)
+```{r, echo = T}
+fm2 <- lmer(
+  formula = Reaction ~ 1 + Days + (1 + Days | Subject),
+  data = sleepstudy,
+  REML = FALSE)
+sleepstudy$fm2.predict <- predict(fm2)
+```
+
+## Sleep Study - Model 2 (Subject slopes)
+```{r}
+sleepstudy.plot + create.scatterplot(
+  fm1.predict ~ Days | Subject,
+  data = sleepstudy,
+  type = c('l'),
+  col = default.colours(3)[1],
+  lwd = 2.5,
+  layout = c(6, 3)
+) + create.scatterplot(
+  fm1.predict.marginal ~ Days | Subject,
+  data = sleepstudy,
+  type = c('l'),
+  lwd = 2.5,
+  col = default.colours(3)[2],
+  layout = c(6, 3)
+) + create.scatterplot(
+  fm2.predict ~ Days | Subject,
+  data = sleepstudy,
+  type = c('l'),
+  lwd = 2.5,
+  col = default.colours(3)[3],
+  layout = c(6, 3))
+```
+
+## Sleep Study - Plot random effects
+```{r, eval=FALSE, echo = T}
+# Lattice dotplot
+dotplot(ranef(fm2))
+```
+
+## Sleep Study - Plot random effects
+```{r}
+dotplot(ranef(fm2))
+```
+
+## Sleep Study - Compare Model 1 and 2
+  - Use `anova(fm1, fm2)` for likelihood ratio test
+```{r}
+kableExtra::kable(broom::tidy(anova(fm1, fm2))[, -2], digits = c(0, 0, 0, 0, 0, 0, 0, 10))
+```
+
+## Sleep Study - Model 3 nlme
+```{r, echo = T}
+fm3.nlme <- lme(
+  fixed = Reaction ~ 1 + Days,
+  random = ~ 1 | Subject,
+  data = sleepstudy,
+  method = "ML")
+```
+
+## Sleep Study - Model 3 nlme
+```{r, echo = T}
+fm3.nlme
+```
+
+## Residual error structure
+  - One benefit of using `nlme` is that we can specify error correlation structure
+  - Using `lme4` we are constrain by the fact that $\boldsymbol{\epsilon} \sim N(0, \sigma I)$
+  - With `nlme` we can model $\boldsymbol{\epsilon} \sim N(0, R)$, where $R$ can be specified.
+
+## Sleep Study - Model 4 nlme with AR(1) errors
+  - Assume that $\epsilon_t = \varphi \epsilon_{t - 1} + \delta_t$, where $\delta_t$ has zero mean and constant variance.
+  - Including `correlation=corAR1(form = ~ 1 | Subject)` estimates $\varphi$.
+  
+```{r}
+fm4.nlme <- lme(
+  fixed = Reaction ~ 1 + Days,
+  random = ~ 1 | Subject,
+  correlation=corAR1(form = ~ 1 | Subject),
+  data = sleepstudy,
+  method = "ML")
+```
+
+## Sleep Study - Model 4 nlme with AR(1) errors
+```{r}
+fm4.nlme
+```
+
+## Sleep Study - Compare model 3 and 4
+```{r}
+kableExtra::kable(anova(fm3.nlme, fm4.nlme)[, -1], digits = c(0, 0, 0, 0, 0, 0, 1, 15))
+```
