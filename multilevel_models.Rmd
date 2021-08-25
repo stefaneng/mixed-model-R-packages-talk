@@ -1,5 +1,7 @@
 ---
 title: "Multilevel/Mixed Effects Model Packages in R"
+author: "Stefan Eng"
+date: "2021-08-25"
 output:
     beamer_presentation:
         slide_level: 2
@@ -69,6 +71,13 @@ ggplot(BodyWeight) +
   geom_line(aes(x = Time, y = weight, group = Rat, colour = Diet), alpha = 0.5) +
   geom_line(aes(x = Time, y = fit3.predict, group = Rat))
 ```
+
+## lme4::sleepstudy data Belenky et al. (2003)
+  > "The average reaction time per day for subjects in a sleep deprivation study. On day 0 the subjects had their normal amount of sleep. Starting that night they were restricted to 3 hours of sleep per night. The observations represent the average reaction time on a series of tests given each day to each subject."
+  
+  - `Reaction` Average reaction time (ms)
+  - `Days` Number of days of sleep deprivation
+  - `Subject` Subject number on which the observation was made
 
 ## sleepstudy
 ```{r, echo = T}
@@ -150,9 +159,16 @@ fm1.REML
 ```
 
 ## Extract Information from summary
-```{r}
+```{r, echo = T}
+# Get variance components
 VarCorr(fm1.REML)
+# ranef(...) gets the random effects
 head(ranef(fm1.REML)$Subject)
+```
+
+## Confidence interval of parameters
+```{r, echo = T}
+# Get a bootstrapped confidence interval for parameters
 confint(fm1.REML, method = "boot")
 ```
 
@@ -244,7 +260,7 @@ fm3.nlme
   - Assume that $\epsilon_t = \varphi \epsilon_{t - 1} + \delta_t$, where $\delta_t$ has zero mean and constant variance.
   - Including `correlation=corAR1(form = ~ 1 | Subject)` estimates $\varphi$.
   
-```{r}
+```{r, echo = T}
 fm4.nlme <- lme(
   fixed = Reaction ~ 1 + Days,
   random = ~ 1 | Subject,
@@ -293,10 +309,21 @@ mcmc_plot(brms.mod2)
 
 ## rstanarm example  
 ```{r, echo = T}
-rsa.mod1 <- rstanarm::stan_glmer(Reaction ~ 1 + Days + (1 | Subject), data = sleepstudy, chains = 1)
+rsa.mod1 <- rstanarm::stan_glmer(
+  Reaction ~ 1 + Days + (1 | Subject),
+  data = sleepstudy, chains = 1)
+```
+
+## rstanarm priors
+```{r}
+prior_summary(rsa.mod1)
 ```
 
 ## rstanarm model
 ```{r}
 summary(rsa.mod1)
 ```
+
+## Summary
+  - Many options for (generalized) linear mixed modeling in R
+  - 
