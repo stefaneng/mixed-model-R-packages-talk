@@ -25,10 +25,12 @@ theme_set(theme_classic())
     - Linear and Nonlinear Mixed Effects Models
     - Can specify covariance structure for the residuals
       - Useful for complex longitudinal modeling
-  - `gamm4`
-    - "Generalized Additive Mixed Models using 'mgcv' and 'lme4'"
   - `brms`
     - "Fit Bayesian generalized (non-)linear multivariate multilevel models using 'Stan' for full Bayesian inference." 
+  - `gamm4` (Won't cover today)
+    - "Generalized Additive Mixed Models using 'mgcv' and 'lme4'"
+  - `rstanarm`
+    - Alternative Bayesian generalized (non-)linear multivariate multilevel modeling 
     
 ```{r, eval = F}
 # This model has fixed effects only for the interaction, intercept included per default
@@ -86,11 +88,6 @@ sleepstudy.plot <- create.scatterplot(
 ```
 ## sleepstudy
 ```{r}
-# key = list(
-#     space = "right",
-#    lines=list(col=default.colours(3), lwd=4),
-#         text=list(c("Patient Int Pred","Average", "Patient Int+Slope Pred"))
-#  )
 sleepstudy.plot
 ```
 
@@ -105,7 +102,7 @@ fm1 <- lmer(
   REML = FALSE)
 # Predict with subject-specific intercepts
 sleepstudy$fm1.predict <- predict(fm1)
-# Predict 
+# Predict average subject
 sleepstudy$fm1.predict.marginal <- predict(
   fm1,
   re.form = NA)
@@ -152,15 +149,27 @@ fm1.REML <- lmer(
 fm1.REML
 ```
 
+## Extract Information from summary
+```{r}
+VarCorr(fm1.REML)
+head(ranef(fm1.REML)$Subject)
+confint(fm1.REML, method = "boot")
+```
+
 ## lme4 syntax
   - `(1 | Subject)`
     - subject specific intercept
   - `(1 + Days | Subject)`
     - subject specific intercept and slope with Time and Subject *correlated*
-  - `(1 | Subject) + (0 + Days | Subject)`
+  - `(1 | Subject) + (0 + Days | Subject)` is the same as `(1 + Days || Subject)`
     - subject specific intercept and slope with Time and Subject *independent*
     - Don't forget the `0 + Days` or `(Days | Subject)` implicitly will fit `(1 + Days | Subject)`
-  
+
+## Nested vs crossed design
+  - Nested groups: `(1|group1/group2)` equivalent to `(1|group1) + (1|group1:group2)`
+    - This cannot be determined from the data, but needs knowledge of the experimental design
+  - Crossed design: `(1|group1) + (1|group2)`
+
 ## Sleep Study - Model 2 (Subject slopes)
 ```{r, echo = T}
 fm2 <- lmer(
@@ -252,4 +261,42 @@ fm4.nlme
 ## Sleep Study - Compare model 3 and 4
 ```{r}
 kableExtra::kable(anova(fm3.nlme, fm4.nlme)[, -1], digits = c(0, 0, 0, 0, 0, 0, 1, 15))
+```
+
+## brms/rstanarm
+  - Full hierarchical treatment of linear mixed model
+    - No need to fit differently (ML/REML) for mixed models
+  - Ability to specify priors
+  - `brms` compiles model to Stan code but is more flexible
+  - `rstanarm` does not need compiling for lm/glm models which make it quicker to develop
+
+## brms and Statistical Rethinking
+  - Someone recreated all of the examples from the book Statistical Rethinking to `brms`:
+  https://bookdown.org/ajkurz/Statistical_Rethinking_recoded/
+  
+  - Great introduction to `brms` even if you have not read the book
+  
+```{r, eval = F}
+brms.mod1 <- brm(Reaction ~ 1 + Days + (1 | Subject), data = sleepstudy, chains = 1)
+mcmc_plot(brms.mod1)
+
+brms.mod2 <- brm(Reaction ~ 1 + Days + (1 | Subject) + ar(p = 1), data = sleepstudy, chains = 1)
+
+marginal_effects(brms.mod1)
+mcmc_plot(brms.mod2)
+```
+
+## Generalized Linear Mixed Models
+  - Both `lme4` and `brms` support generalized models via the `family = "..."` argument
+  - Negative binomial not supported directly with `brms`
+  - NB available in `rstanarm::stan_glm::stan_glmer.nb` or `lme4::glmer.nb`
+
+## rstanarm example  
+```{r, echo = T}
+rsa.mod1 <- rstanarm::stan_glmer(Reaction ~ 1 + Days + (1 | Subject), data = sleepstudy, chains = 1)
+```
+
+## rstanarm model
+```{r}
+summary(rsa.mod1)
 ```
