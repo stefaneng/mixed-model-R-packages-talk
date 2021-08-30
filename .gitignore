@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+multilevel_models_files/figure-beamer/*
+multilevel_models_cache/
+*.tex
+*.nb.html

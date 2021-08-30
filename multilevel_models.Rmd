@@ -6,6 +6,7 @@ output:
     beamer_presentation:
         slide_level: 2
         keep_tex: true
+    github_document: true
 ---
 
 ```{r, setup, echo=FALSE, warning = FALSE, message = FALSE, results = 'hide'}
@@ -80,7 +81,7 @@ ggplot(BodyWeight) +
   - `Subject` Subject number on which the observation was made
 
 ## sleepstudy
-```{r, echo = T}
+```{r echo = T}
 sleepstudy.plot <- create.scatterplot(
   Reaction ~ Days | Subject,
   data = sleepstudy,
@@ -96,7 +97,7 @@ sleepstudy.plot <- create.scatterplot(
   )
 ```
 ## sleepstudy
-```{r}
+```{r sleepstudy-scatter}
 sleepstudy.plot
 ```
 
@@ -118,7 +119,7 @@ sleepstudy$fm1.predict.marginal <- predict(
 ```
 
 ## Subject Specific Prediction
-```{r}
+```{r sleepstudy-scatter-subject-preds}
 sleepstudy.plot + create.scatterplot(
   fm1.predict ~ Days | Subject,
   data = sleepstudy,
@@ -196,7 +197,7 @@ sleepstudy$fm2.predict <- predict(fm2)
 ```
 
 ## Sleep Study - Model 2 (Subject slopes)
-```{r}
+```{r sleepstudy-scatter-subject-slopes}
 sleepstudy.plot + create.scatterplot(
   fm1.predict ~ Days | Subject,
   data = sleepstudy,
@@ -227,7 +228,7 @@ dotplot(ranef(fm2))
 ```
 
 ## Sleep Study - Plot random effects
-```{r}
+```{r sleepstudy-ranef-dotplot}
 dotplot(ranef(fm2))
 ```
 
@@ -326,4 +327,3 @@ summary(rsa.mod1)
 
 ## Summary
   - Many options for (generalized) linear mixed modeling in R
-  - 
